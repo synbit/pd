@@ -7,7 +7,12 @@ Tis repository deploys the following in your AWS account:
 
 ## Table of Contents
 
+- [Design Overview](#design)
 - [Deployment](#deployment)
+
+## Design Overview
+
+![Image Alt Text](design/web-app.jpg)
 
 ## Deployment
 
