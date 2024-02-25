@@ -24,5 +24,7 @@ Resources:
         BlockPublicPolicy: True
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
+      AccelerateConfiguration:
+        AccelerationStatus: Enabled
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
