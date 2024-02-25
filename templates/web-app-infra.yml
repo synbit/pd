@@ -1,0 +1,163 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Deploy a web-app on Windows Server, VPC and subnets
+
+Parameters:
+  Environment:
+    Type: String
+    Default: 'dev'
+    Description: Environment for Web-App
+    AllowedValues:
+      - dev
+      - prod
+
+Mappings:
+  RegionMap:
+    'us-east-2':
+      ami: 'ami-0e01a55be03ca62bf'
+    'eu-west-1':
+      ami: 'ami-073e5090717e28896'
+    'ap-southeast-4':
+      ami: 'ami-zzz'
+
+Resources:
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+
+  MyInternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      InternetGatewayId:
+        Ref: MyInternetGateway
+
+  MySubnetOne:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Sub ${AWS::Region}a
+
+  MySubnetTwo:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Sub ${AWS::Region}b
+
+  MyRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+
+  MyRoute:
+    Type: AWS::EC2::Route
+    DependsOn: MyInternetGateway  # Ensure Internet Gateway is created before the route
+    Properties:
+      RouteTableId: !Ref MyRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MyInternetGateway
+
+  SubnetRouteTableAssociationOne:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MySubnetOne
+      RouteTableId: !Ref MyRouteTable
+
+  SubnetRouteTableAssociationTwo:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MySubnetTwo
+      RouteTableId: !Ref MyRouteTable
+
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP access
+      VpcId:
+        Ref: MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  LaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !FindInMap ["RegionMap", !Ref "AWS::Region", "ami"]
+      InstanceType: t2.micro
+      SecurityGroups:
+        - Ref: WebServerSecurityGroup
+      IamInstanceProfile: !Sub webapp-instance-profile-${Environment}
+      UserData:
+        Fn::Base64: |
+          <powershell>
+          Install-WindowsFeature -name Web-Server -IncludeManagementTools
+          Remove-WebSite -Name 'Default Web Site'
+          New-Website -Name 'HelloWorld' -Port 80 -PhysicalPath 'C:\inetpub\wwwroot' -ApplicationPool '.NET v4.5'
+          Set-Content -Path 'C:\inetpub\wwwroot\index.html' -Value '<html><head><title>Hello World</title></head><body><h1>Hello World!</h1></body></html>'
+          </powershell>
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: 30 # Got an error expected size >= 30GB?
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - Ref: MySubnetOne
+        - Ref: MySubnetTwo
+      LaunchConfigurationName:
+        Ref: LaunchConfiguration
+      MinSize: '1'
+      MaxSize: '3'
+      TargetGroupARNs:
+        - Ref: TargetGroup
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - Ref: MySubnetOne
+        - Ref: MySubnetTwo
+      SecurityGroups:
+        - Ref: WebServerSecurityGroup
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: TargetGroup
+      LoadBalancerArn:
+        Ref: LoadBalancer
+      Port: '80'
+      Protocol: HTTP
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      VpcId:
+        Ref: MyVPC
+
+Outputs:
+  LoadBalancerDNSName:
+    Value: 
+      Fn::GetAtt: 
+        - LoadBalancer
+        - DNSName

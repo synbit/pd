@@ -1,0 +1,28 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Deploys the Web-App bucket
+
+Parameters:
+  Environment:
+    Type: String
+    Default: 'dev'
+    Description: Environment for Web-App
+    AllowedValues:
+      - dev
+      - prod
+
+Resources:
+  WebAppS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::AccountId}-web-app-bucket-${Environment}
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
