@@ -28,12 +28,142 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Effect: Allow
+              - Sid: AllowAccessToASsetsBucket
+                Effect: Allow
                 Action:
                   - s3:GetObject
                   - s3:PutObject
                 Resource:
                   - !Sub arn:aws:s3:::${AWS::AccountId}-web-app-bucket-${Environment}/*
+              - Sid: SSMProfile # necessary for working with SSM, Patch Manager etc
+                Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                  - ec2messages:*
+                  - ec2:DescribeInstanceStatus
+                  - ec2:DescribeTags
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:DescribeLog*
+                  - logs:PutLogEvents
+                  - ssmmessages:*
+                  - ssm:DescribeAssociation
+                  - ssm:GetDeployablePatchSnapshotForInstance
+                  - ssm:GetDocument
+                  - ssm:DescribeDocument
+                  - ssm:GetManifest
+                  - ssm:GetParameters
+                  - ssm:ListAssociations
+                  - ssm:ListInstanceAssociations
+                  - ssm:PutInventory
+                  - ssm:PutComplianceItems
+                  - ssm:PutConfigurePackageResult
+                  - ssm:UpdateAssociationStatus
+                  - ssm:UpdateInstanceAssociationStatus
+                  - ssm:UpdateInstanceInformation
+                Effect: Allow
+                Resource: "*"
+              - Sid: AllowSSMBucketAccessForNeededPatching
+                Action:
+                  - s3:GetObject
+                Effect: Allow
+                Resource:
+                  - arn:aws:s3:::aws-ssm-us-east-2/*
+                  - arn:aws:s3:::aws-windows-downloads-us-east-2/*
+                  - arn:aws:s3:::amazon-ssm-us-east-2/*
+                  - arn:aws:s3:::amazon-ssm-packages-us-east-2/*
+                  - arn:aws:s3:::us-east-2-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-us-east-2/*
+                  - arn:aws:s3:::aws-ssm-eu-north-1/*
+                  - arn:aws:s3:::aws-windows-downloads-eu-north-1/*
+                  - arn:aws:s3:::amazon-ssm-eu-north-1/*
+                  - arn:aws:s3:::amazon-ssm-packages-eu-north-1/*
+                  - arn:aws:s3:::eu-north-1-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-eu-north-1/*
+                  - arn:aws:s3:::aws-ssm-ap-south-1/*
+                  - arn:aws:s3:::aws-windows-downloads-ap-south-1/*
+                  - arn:aws:s3:::amazon-ssm-ap-south-1/*
+                  - arn:aws:s3:::amazon-ssm-packages-ap-south-1/*
+                  - arn:aws:s3:::ap-south-1-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-ap-south-1/*
+                  - arn:aws:s3:::aws-ssm-eu-west-3/*
+                  - arn:aws:s3:::aws-windows-downloads-eu-west-3/*
+                  - arn:aws:s3:::amazon-ssm-eu-west-3/*
+                  - arn:aws:s3:::amazon-ssm-packages-eu-west-3/*
+                  - arn:aws:s3:::eu-west-3-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-eu-west-3/*
+                  - arn:aws:s3:::aws-ssm-eu-west-2/*
+                  - arn:aws:s3:::aws-windows-downloads-eu-west-2/*
+                  - arn:aws:s3:::amazon-ssm-eu-west-2/*
+                  - arn:aws:s3:::amazon-ssm-packages-eu-west-2/*
+                  - arn:aws:s3:::eu-west-2-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-eu-west-2/*
+                  - arn:aws:s3:::aws-ssm-eu-west-1/*
+                  - arn:aws:s3:::aws-windows-downloads-eu-west-1/*
+                  - arn:aws:s3:::amazon-ssm-eu-west-1/*
+                  - arn:aws:s3:::amazon-ssm-packages-eu-west-1/*
+                  - arn:aws:s3:::eu-west-1-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-eu-west-1/*
+                  - arn:aws:s3:::aws-ssm-ap-northeast-2/*
+                  - arn:aws:s3:::aws-windows-downloads-ap-northeast-2/*
+                  - arn:aws:s3:::amazon-ssm-ap-northeast-2/*
+                  - arn:aws:s3:::amazon-ssm-packages-ap-northeast-2/*
+                  - arn:aws:s3:::ap-northeast-2-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-ap-northeast-2/*
+                  - arn:aws:s3:::aws-ssm-ap-northeast-1/*
+                  - arn:aws:s3:::aws-windows-downloads-ap-northeast-1/*
+                  - arn:aws:s3:::amazon-ssm-ap-northeast-1/*
+                  - arn:aws:s3:::amazon-ssm-packages-ap-northeast-1/*
+                  - arn:aws:s3:::ap-northeast-1-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-ap-northeast-1/*
+                  - arn:aws:s3:::aws-ssm-sa-east-1/*
+                  - arn:aws:s3:::aws-windows-downloads-sa-east-1/*
+                  - arn:aws:s3:::amazon-ssm-sa-east-1/*
+                  - arn:aws:s3:::amazon-ssm-packages-sa-east-1/*
+                  - arn:aws:s3:::sa-east-1-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-sa-east-1/*
+                  - arn:aws:s3:::aws-ssm-ca-central-1/*
+                  - arn:aws:s3:::aws-windows-downloads-ca-central-1/*
+                  - arn:aws:s3:::amazon-ssm-ca-central-1/*
+                  - arn:aws:s3:::amazon-ssm-packages-ca-central-1/*
+                  - arn:aws:s3:::ca-central-1-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-ca-central-1/*
+                  - arn:aws:s3:::aws-ssm-ap-southeast-1/*
+                  - arn:aws:s3:::aws-windows-downloads-ap-southeast-1/*
+                  - arn:aws:s3:::amazon-ssm-ap-southeast-1/*
+                  - arn:aws:s3:::amazon-ssm-packages-ap-southeast-1/*
+                  - arn:aws:s3:::ap-southeast-1-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-ap-southeast-1/*
+                  - arn:aws:s3:::aws-ssm-ap-southeast-2/*
+                  - arn:aws:s3:::aws-windows-downloads-ap-southeast-2/*
+                  - arn:aws:s3:::amazon-ssm-ap-southeast-2/*
+                  - arn:aws:s3:::amazon-ssm-packages-ap-southeast-2/*
+                  - arn:aws:s3:::ap-southeast-2-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-ap-southeast-2/*
+                  - arn:aws:s3:::aws-ssm-eu-central-1/*
+                  - arn:aws:s3:::aws-windows-downloads-eu-central-1/*
+                  - arn:aws:s3:::amazon-ssm-eu-central-1/*
+                  - arn:aws:s3:::amazon-ssm-packages-eu-central-1/*
+                  - arn:aws:s3:::eu-central-1-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-eu-central-1/*
+                  - arn:aws:s3:::aws-ssm-us-east-1/*
+                  - arn:aws:s3:::aws-windows-downloads-us-east-1/*
+                  - arn:aws:s3:::amazon-ssm-us-east-1/*
+                  - arn:aws:s3:::amazon-ssm-packages-us-east-1/*
+                  - arn:aws:s3:::us-east-1-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-us-east-1/*
+                  - arn:aws:s3:::aws-ssm-us-west-1/*
+                  - arn:aws:s3:::aws-windows-downloads-us-west-1/*
+                  - arn:aws:s3:::amazon-ssm-us-west-1/*
+                  - arn:aws:s3:::amazon-ssm-packages-us-west-1/*
+                  - arn:aws:s3:::us-west-1-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-us-west-1/*
+                  - arn:aws:s3:::aws-ssm-us-west-2/*
+                  - arn:aws:s3:::aws-windows-downloads-us-west-2/*
+                  - arn:aws:s3:::amazon-ssm-us-west-2/*
+                  - arn:aws:s3:::amazon-ssm-packages-us-west-2/*
+                  - arn:aws:s3:::us-west-2-birdwatcher-prod/*
+                  - arn:aws:s3:::patch-baseline-snapshot-us-west-2/*
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile

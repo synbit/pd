@@ -28,75 +28,119 @@ Resources:
       EnableDnsSupport: true
       EnableDnsHostnames: true
 
-  MyInternetGateway:
+  PublicSubnetOne:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      CidrBlock: 10.0.1.0/25
+      AvailabilityZone: !Sub ${AWS::Region}a
+      MapPublicIpOnLaunch: true
+
+  PublicSubnetTwo:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      CidrBlock: 10.0.1.128/25
+      AvailabilityZone: !Sub ${AWS::Region}b
+      MapPublicIpOnLaunch: true
+
+  PrivateSubnetOne:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      CidrBlock: 10.0.2.0/25
+      AvailabilityZone: !Sub ${AWS::Region}a
+
+  PrivateSubnetTwo:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      CidrBlock: 10.0.2.128/25
+      AvailabilityZone: !Sub ${AWS::Region}b
+
+  InternetGateway:
     Type: AWS::EC2::InternetGateway
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId:
-        Ref: MyVPC
-      InternetGatewayId:
-        Ref: MyInternetGateway
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref InternetGateway
 
-  MySubnetOne:
-    Type: AWS::EC2::Subnet
+  EIPForNAT:
+    Type: AWS::EC2::EIP
     Properties:
-      VpcId:
-        Ref: MyVPC
-      CidrBlock: 10.0.1.0/24
-      AvailabilityZone: !Sub ${AWS::Region}a
+      Domain: vpc
 
-  MySubnetTwo:
-    Type: AWS::EC2::Subnet
+  NATGateway:
+    Type: AWS::EC2::NatGateway
     Properties:
-      VpcId:
-        Ref: MyVPC
-      CidrBlock: 10.0.2.0/24
-      AvailabilityZone: !Sub ${AWS::Region}b
+      AllocationId: !GetAtt EIPForNAT.AllocationId
+      SubnetId: !Ref PublicSubnetOne
 
-  MyRouteTable:
+
+  # Public Route Table
+  PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref MyVPC
 
-  MyRoute:
+  PublicRoute:
     Type: AWS::EC2::Route
-    DependsOn: MyInternetGateway  # Ensure Internet Gateway is created before the route
     Properties:
-      RouteTableId: !Ref MyRouteTable
+      RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref MyInternetGateway
+      GatewayId: !Ref InternetGateway
 
-  SubnetRouteTableAssociationOne:
+  # Associate Public Subnets with Public Route Table
+  AssociatePublicRouteTableOne:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref MySubnetOne
-      RouteTableId: !Ref MyRouteTable
+      SubnetId: !Ref PublicSubnetOne
+      RouteTableId: !Ref PublicRouteTable
 
-  SubnetRouteTableAssociationTwo:
+  AssociatePublicRouteTableTwo:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref MySubnetTwo
-      RouteTableId: !Ref MyRouteTable
+      SubnetId: !Ref PublicSubnetTwo
+      RouteTableId: !Ref PublicRouteTable
 
-  WebServerSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  # Private Route Table
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
     Properties:
-      GroupDescription: Enable HTTP access
-      VpcId:
-        Ref: MyVPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
+      VpcId: !Ref MyVPC
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGateway
+
+  # Associate Private Subnets with Private Route Table
+  AssociatePrivateRouteTableOne:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetOne
+      RouteTableId: !Ref PrivateRouteTable
+
+  AssociatePrivateRouteTableTwo:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetTwo
+      RouteTableId: !Ref PrivateRouteTable
 
   LaunchConfiguration:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
       ImageId: !FindInMap ["RegionMap", !Ref "AWS::Region", "ami"]
       InstanceType: t2.micro
+      KeyName: !Sub webapp-${AWS::Region} # must be created separately
       SecurityGroups:
         - Ref: WebServerSecurityGroup
       IamInstanceProfile: !Sub webapp-instance-profile-${Environment}
@@ -107,53 +151,85 @@ Resources:
           Remove-WebSite -Name 'Default Web Site'
           New-Website -Name 'HelloWorld' -Port 80 -PhysicalPath 'C:\inetpub\wwwroot' -ApplicationPool '.NET v4.5'
           Set-Content -Path 'C:\inetpub\wwwroot\index.html' -Value '<html><head><title>Hello World</title></head><body><h1>Hello World!</h1></body></html>'
+          # Ensure Windows Firewall isn't getting in the way:
+          New-NetFirewallRule -DisplayName "Allow Port 80" -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow
+          # AppPool association:
+          New-WebAppPool -Name 'HelloWorldAppPool'
+          Set-ItemProperty IIS:\Sites\HelloWorld -name applicationPool -value 'HelloWorldAppPool'
+          # Reset for the changes to kick in
+          iisreset
           </powershell>
       BlockDeviceMappings:
         - DeviceName: "/dev/sda1"
           Ebs:
             VolumeSize: 30 # Got an error expected size >= 30GB?
 
-  AutoScalingGroup:
-    Type: AWS::AutoScaling::AutoScalingGroup
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
     Properties:
-      VPCZoneIdentifier:
-        - Ref: MySubnetOne
-        - Ref: MySubnetTwo
-      LaunchConfigurationName:
-        Ref: LaunchConfiguration
-      MinSize: '1'
-      MaxSize: '3'
-      TargetGroupARNs:
-        - Ref: TargetGroup
+      GroupDescription: "Security Group for EC2 instances"
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
 
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
+      Name: MyApplicationLoadBalancer
       Subnets:
-        - Ref: MySubnetOne
-        - Ref: MySubnetTwo
+        - Ref: PublicSubnetOne
+        - Ref: PublicSubnetTwo
       SecurityGroups:
-        - Ref: WebServerSecurityGroup
+        - Ref: ALBSecurityGroup
+      Scheme: internet-facing
+      Type: application
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Security Group for ALB"
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: MyTargetGroup
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref MyVPC
+      TargetType: instance
 
   Listener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
         - Type: forward
-          TargetGroupArn:
-            Ref: TargetGroup
-      LoadBalancerArn:
-        Ref: LoadBalancer
-      Port: '80'
-      Protocol: HTTP
-
-  TargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref LoadBalancer
       Port: 80
       Protocol: HTTP
-      VpcId:
-        Ref: MyVPC
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - Ref: PrivateSubnetOne
+        - Ref: PrivateSubnetTwo
+      LaunchConfigurationName: !Ref LaunchConfiguration
+      MinSize: 1
+      MaxSize: 2
+      TargetGroupARNs:
+        - Ref: TargetGroup
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
 
 Outputs:
   LoadBalancerDNSName:

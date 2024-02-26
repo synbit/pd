@@ -19,6 +19,10 @@ Resources:
       OwnershipControls:
         Rules:
           - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
       PublicAccessBlockConfiguration:
         BlockPublicAcls: True
         BlockPublicPolicy: True
@@ -26,5 +30,21 @@ Resources:
         RestrictPublicBuckets: True
       AccelerateConfiguration:
         AccelerationStatus: Enabled
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebAppS3Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: RequireSSL
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: !Sub "arn:aws:s3:::${AWS::AccountId}-web-app-bucket-${Environment}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: false
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain

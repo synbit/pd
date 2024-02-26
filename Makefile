@@ -11,8 +11,8 @@ DEV_TAGS += ${TAGS} environment="dev"
 PROD_TAGS += ${TAGS} environment="prod"
 CODE_BUCKET := ${AWS_ACCOUNT_ID}-code
 
-make_all: install lint deploy_dev deploy_prod
-.PHONY: make_all
+deploy_all: install lint deploy_dev deploy_prod
+.PHONY: deploy_all
 
 install:
 	@echo "Installing Python dependencies"
@@ -26,14 +26,6 @@ lint:
 	@echo "Linting executed successful"
 	@echo
 .PHONY: lint
-
-
-STRINGS := str-1 str-2 str-3
-loop:
-	@for str in $(STRINGS); do \
-		echo $$str; \
-	done
-.PHONY: loop
 
 deploy_dev: $(dev)
 	@echo "Deploying Dev stack in ${AWS_ACCOUNT_ID}, ${DEFAULT_AWS_REGION}..."
