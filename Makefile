@@ -1,8 +1,7 @@
 SHELL:=/usr/bin/env bash
 AWS_ACCOUNT_ID := $(shell pipenv run aws sts get-caller-identity --query "Account" --output text)
 DEFAULT_AWS_REGION := us-east-2 # IAM resources and App's S3 bucket is deployed here
-# APP_REGIONS := us-east-2 eu-west-1 # ap-southeast-4 # Current App supported regions
-APP_REGIONS := us-east-2 eu-west-1
+APP_REGIONS := us-east-2 eu-west-1 ap-southeast-4 # Current App supported regions
 IAM_STACK_NAME := iam
 S3_STACK_NAME := s3
 WEBAPP_INFRA_STACK_NAME := web-app-infra
